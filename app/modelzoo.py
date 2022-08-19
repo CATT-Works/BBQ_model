@@ -10,10 +10,13 @@ CONFIG_FILE = 'config.yaml'
 
 
 class ModelZoo:
-    def __init__(self):
+    def __init__(self, credentials = None):
         
         self.read_configs()
             
+        if credentials is not None:
+            self.CREDENTIALS = credentials    
+        
         self.tmcs_all_dict = read_all_tmcs(data_path=self.DATA_PATH)
         self.target_tmcs_df_dict = read_target_tmcs(data_path=self.DATA_PATH)
         
@@ -72,33 +75,61 @@ class ModelZoo:
         
         return ml_data
     
-    def estimate_now(self, direction, forecast_horizon=30, return_df = True):
+    def estimate_now(self, direction, forecast_horizon=30):
         """
         Provides estimates for current situation
         Args:
             direction (string): Traffic direction (East/West)
-            forecast_horizon (int, optional): Forecast horizon in minutes. 
-                                              Defaults to 30.
-            return_df (bool, optional): Return format (dataframe / array)
+            forecast_horizon: Forecast horizon[s] in minutes. Could be an int,
+                              a list of integers or a string 'all'
 
         Returns:
-            pd.DataFrame / numpy.ndarray: return format. If df is returned,
-            the columsn are ['tmc_code', 'measurement_tstamp', 'sr', 
-            'average_speed', 'reference_speed']. Otherwise, pure numpy.ndarray
-            is retured. Note: measurement_tstap is the most recent data timestamp
-            in UTC. Predictions are for measurement_tstamp+forecast_horizon
+            pd.DataFrame: A dataframe with results. The columsn are 
+            ['horizon', 'tmc_code', 'measurement_tstamp', 'sr', 
+            'average_speed', 'reference_speed']. 
         """
         
         ml_data = self.get_data_now(direction)
-        model = self.model_dict[f'{direction}{forecast_horizon}']
-        pred = model.predict(ml_data)
-        
-        if return_df:
-            res = ml_data[['tmc_code', 'measurement_tstamp', 'sr', 'average_speed', 'reference_speed']].copy()       
-            res['sr_pred'] = pred
-            return res
-        else:
-            return pred
+        return self.estimate(ml_data, direction, forecast_horizon)
         
     
+    def estimate(self, ml_data, direction, forecast_horizon='all'):
+        """
+        Provides estimates for current situation
+        Args:
+            ml_data (pd.DataFrame): DataFrame with ML data.
+            direction (string): Traffic direction (East/West)
+            forecast_horizon: Forecast horizon[s] in minutes. Could be an int,
+                              a list of integers or a string 'all'
+
+        Returns:
+            pd.DataFrame: A dataframe with results. The columsn are 
+            ['horizon', 'tmc_code', 'measurement_tstamp', 'sr', 
+            'average_speed', 'reference_speed']. 
+        """
+        
+        if forecast_horizon == 'all':
+            forecast_horizon = [5, 10, 15, 20, 25, 30]
+        elif isinstance(forecast_horizon, (int, str)):
+            forecast_horizon = [forecast_horizon]
+
+        res_df = pd.DataFrame()        
+        for horizon in forecast_horizon:                
+            model = self.model_dict[f'{direction}{horizon}']
+            pred = model.predict(ml_data)
             
+            if len (res_df) == 0:
+                res_cols = ['tmc_code', 'measurement_tstamp', 'sr', 'average_speed', 'reference_speed']
+                res_df = ml_data[res_cols].copy()       
+                res_df['horizon'] = horizon
+                res_df = res_df[['horizon'] + res_cols]
+
+            res_df[f'sr_pred_{horizon}'] = pred
+
+                
+        return res_df
+    
+                
+                
+
+

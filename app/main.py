@@ -11,7 +11,7 @@ app = Flask(__name__)
 def hello():
     return """
     Avaliable endpoints:<br>
-        - /now?direction={East/West}&horizon={5,10,15,20,25,30}<br>
+        - /now?direction={East/West}&horizon={5,10,15,20,25,30,all}<br>
         - /East<br>
         - /West<br>
     """
@@ -33,7 +33,7 @@ def estimateNow():
     horizon = request.args.get('horizon')
 
     feasible_directions = ['East', 'West'] 
-    feasible_horizons = ['5', '10', '15', '20', '25', '30']
+    feasible_horizons = ['5', '10', '15', '20', '25', '30', 'all']
 
     if direction is None:
         return "Error: direction not specified."
@@ -41,7 +41,7 @@ def estimateNow():
     direction = direction.capitalize()
 
     if horizon is None:
-        horizon = '30'
+        horizon = 'all'
         
     if horizon not in feasible_horizons:
         return f"Error: horizon must be one of {feasible_horizons}. Instead, it is {horizon}."

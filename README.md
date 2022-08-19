@@ -18,13 +18,13 @@ docker run -p 5000:5000 -e USERNAME=your_username -e PASSWORD=your_password bbq-
 
 #### Using the container
 For now, there is one endpoint available
-/now?direction={East/West}&horizon={5,10,15,20,25,30}
+/now?direction={East/West}&horizon={5,10,15,20,25,30,all}
 - direction: estimates for eastbound/westbound direction
 - horizon: time horizon for estimates (5 - 30 minutes)
 
 Examples:
 - http://localhost:5000/now/?direction=West&horizon=15: Estimates speed ratios 15 minutes ahead in westbound direction.
-- http://localhost:5000/now/?direction=East: Estimates speed ratios 30 minutes ahead in eastbound direction (default horizon is 30 minutes)
+- http://localhost:5000/now/?direction=East: Estimates speed ratios 5-30 minutes ahead in eastbound direction (default horizon is `all`)
 - http://localhost:5000/East: link, same command as above
 
 
