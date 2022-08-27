@@ -31,6 +31,7 @@ def WestModel():
 def estimateNow():
     direction = request.args.get('direction')
     horizon = request.args.get('horizon')
+    outputformat = request.args.get('outputformat')
 
     feasible_directions = ['East', 'West'] 
     feasible_horizons = ['5', '10', '15', '20', '25', '30', 'all']
@@ -46,4 +47,9 @@ def estimateNow():
     if horizon not in feasible_horizons:
         return f"Error: horizon must be one of {feasible_horizons}. Instead, it is {horizon}."
         
-    return modelzoo.estimate_now(direction, horizon).to_csv(index=False, line_terminator=modelzoo.LINETERMINATOR)
+    resdf = modelzoo.estimate_now(direction, horizon)
+    
+    if outputformat == 'csv':
+        return resdf.to_csv(index=False, line_terminator=modelzoo.LINETERMINATOR)
+    else:
+        return resdf.to_json()

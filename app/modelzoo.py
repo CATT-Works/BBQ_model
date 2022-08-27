@@ -1,5 +1,3 @@
-from cgitb import reset
-from email import message
 import os
 import joblib
 from getrawdata import *
@@ -121,15 +119,9 @@ class ModelZoo:
             if len (res_df) == 0:
                 res_cols = ['tmc_code', 'measurement_tstamp', 'sr', 'average_speed', 'reference_speed']
                 res_df = ml_data[res_cols].copy()       
-                res_df['horizon'] = horizon
-                res_df = res_df[['horizon'] + res_cols]
-
+                
             res_df[f'sr_pred_{horizon}'] = pred
 
                 
         return res_df
     
-                
-                
-
-
