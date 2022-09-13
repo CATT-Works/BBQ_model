@@ -53,9 +53,24 @@ class ModelZoo:
                 
                 
                 
-    def get_data_now(self, direction):
+    def get_data_now(self, direction, read_config = False):
+        """
+        Prepares data for the model
 
-        lane_data = get_bb_current_status_df(get_bb_data(self.CREDENTIALS))
+        Args:
+            direction (str): West / East
+            read_config (bool, optional): If True, the curent
+                configuration of BB is read and used. Otherwise uses all
+                configurations.
+        Returns:
+            pd.DataFrame: The ML data for the model
+        """      
+  
+        if read_config:
+            lane_data = get_bb_current_status_df(get_bb_data(self.CREDENTIALS))
+        else:
+            lane_data = get_bb_base_status_df()
+            
         speeds = agg_speed_5m(get_speed_data(self.tmcs_all_dict[direction], self.CREDENTIALS))
 
         print ('Process data...')
@@ -70,24 +85,43 @@ class ModelZoo:
         )
         
         ml_data = ml_data[ml_data.measurement_tstamp == ml_data.measurement_tstamp.max()]
+
+        if read_config:
+            return ml_data
         
+        # Returns all the BB configurations data
+        
+        ret = pd.DataFrame()
+        for east in range (1, 5):
+            for west in range (1, 6-east):
+                ml_data.East = east
+                ml_data.West = west
+                if len(ret) == 0:
+                    ret = ml_data.copy()
+                else:
+                    ret = pd.concat([ret, ml_data],ignore_index=True)
+        return ret
+             
+                
         return ml_data
     
-    def estimate_now(self, direction, forecast_horizon=30):
+    def estimate_now(self, direction, forecast_horizon='all', read_config=False):
         """
         Provides estimates for current situation
         Args:
             direction (string): Traffic direction (East/West)
             forecast_horizon: Forecast horizon[s] in minutes. Could be an int,
                               a list of integers or a string 'all'
-
+            read_config (bool, optional): If True, the curent
+                configuration of BB is read and used. Otherwise uses all
+                configurations.
         Returns:
             pd.DataFrame: A dataframe with results. The columsn are 
             ['horizon', 'tmc_code', 'measurement_tstamp', 'sr', 
             'average_speed', 'reference_speed']. 
         """
         
-        ml_data = self.get_data_now(direction)
+        ml_data = self.get_data_now(direction, read_config)
         return self.estimate(ml_data, direction, forecast_horizon)
         
     
@@ -99,7 +133,6 @@ class ModelZoo:
             direction (string): Traffic direction (East/West)
             forecast_horizon: Forecast horizon[s] in minutes. Could be an int,
                               a list of integers or a string 'all'
-
         Returns:
             pd.DataFrame: A dataframe with results. The columsn are 
             ['horizon', 'tmc_code', 'measurement_tstamp', 'sr', 
@@ -117,7 +150,7 @@ class ModelZoo:
             pred = model.predict(ml_data)
             
             if len (res_df) == 0:
-                res_cols = ['tmc_code', 'measurement_tstamp', 'sr', 'average_speed', 'reference_speed']
+                res_cols = ['tmc_code', 'measurement_tstamp', 'West', 'East', 'sr', 'average_speed', 'reference_speed']
                 res_df = ml_data[res_cols].copy()       
                 
             res_df[f'sr_pred_{horizon}'] = pred

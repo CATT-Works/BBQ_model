@@ -204,3 +204,30 @@ def read_target_tmcs(data_path : str):
         res[traffic_dir] = pd.read_csv(tmc_file, delimiter=',' ,dtype=None)
     return res
 
+
+def get_bb_base_status_df(dt = None):
+    """
+    Produces a basic dataframe
+
+    Args:
+        json_file (str): string with jsonfile of current bb status
+
+    Returns:
+        pd.DataFrame: DataFrame with current bb status
+    """
+    columns = [
+        'measurement_tstamp',
+        'L1status', 'L1status', 
+        'L3status', 'L4status', 'L5status', 
+        'West', 'East',        
+    ]
+    data = [
+        datetime.datetime.now(datetime.timezone.utc),
+        'W', 'W', 
+        'E', 'E', 'E', 
+        2, 3,
+    ]
+    df = pd.DataFrame(data=data).T
+    df.columns = columns
+    return df
+

@@ -11,9 +11,14 @@ app = Flask(__name__)
 def hello():
     return """
     Avaliable endpoints:<br>
-        - /now?direction={East/West}&horizon={5,10,15,20,25,30,all}<br>
+        - /now?direction={East/West}<br>
         - /East<br>
         - /West<br>
+    Arguments for /now endpoint:<br>
+        - direction={East/West} (mandatory)
+        - horizon={5,10,15,20,25,30,all} (default: all)
+        - output_format={json,csv} (default: json)
+        - 
     """
     name = request.args.get('name', 'World')
     return f'Hello {escape(name)}!'
@@ -30,9 +35,10 @@ def WestModel():
 @app.route('/now/')
 def estimateNow():
     direction = request.args.get('direction')
-    horizon = request.args.get('horizon')
-    outputformat = request.args.get('outputformat')
+    horizon = request.args.get('horizon', default = 'all')
+    read_config = request.args.get('read_config', default=False)
 
+    outputformat = request.args.get('outputformat')
     feasible_directions = ['East', 'West'] 
     feasible_horizons = ['5', '10', '15', '20', '25', '30', 'all']
 
@@ -46,8 +52,12 @@ def estimateNow():
         
     if horizon not in feasible_horizons:
         return f"Error: horizon must be one of {feasible_horizons}. Instead, it is {horizon}."
+
+    if direction not in feasible_directions:
+        return f"Error: direction must be one of {feasible_directions}. Instead, it is {direction}."
+
         
-    resdf = modelzoo.estimate_now(direction, horizon)
+    resdf = modelzoo.estimate_now(direction, horizon, read_config)
     
     if outputformat == 'csv':
         return resdf.to_csv(index=False, line_terminator=modelzoo.LINETERMINATOR)
