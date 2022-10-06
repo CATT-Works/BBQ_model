@@ -1,65 +1,77 @@
-from flask import Flask, request, redirect
+import sys
+import os
+import argparse
 from modelzoo import ModelZoo
-from os import linesep
 
-modelzoo = ModelZoo()
+parser = argparse.ArgumentParser(description='Generate BayBridge Estimates')
+
+parser.add_argument('-t', '--token',
+                    type=str,
+                    default=None,
+                    help='Baybridge endpoints token'
+                   )
+
+parser.add_argument('-s', '--speedendpoint',
+                    type=str,
+                    default='https://baybridge.ritis.org/speed/recent/',
+                    help='Speed endpoint'
+                   )
+
+parser.add_argument('-b', '--bbendpoint',
+                    type=str,
+                    default='https://baybridge.ritis.org/status/',
+                    help='Bay Bridge status endpoint'
+                   )
+
+parser.add_argument('-d', '--direction',
+                    type=str,
+                    default='East',
+                    choices=['East', 'West'],
+                    help='Traffic direction'
+                   )
+
+parser.add_argument('-f', '--forecasthorizon',
+                    type=str,
+                    default='all',
+                    choices=['all', '5', '10', '15', '20', '25', '30'],
+                    help='Horizon of estimates'
+                   )
+
+parser.add_argument('-o', '--outputformat',
+                    type=str,
+                    default='json',
+                    choices=['json', 'csv', 'df'],
+                    help='Output format'
+                   )
 
 
-app = Flask(__name__)
 
-@app.route('/')
-def hello():
-    return """
-    Avaliable endpoints:<br>
-        - /now?direction={East/West}<br>
-        - /East<br>
-        - /West<br>
-    Arguments for /now endpoint:<br>
-        - direction={East/West} (mandatory)
-        - horizon={5,10,15,20,25,30,all} (default: all)
-        - output_format={json,csv} (default: json)
-        - 
-    """
-    name = request.args.get('name', 'World')
-    return f'Hello {escape(name)}!'
-
-
-@app.route('/East/')
-def EastModel():
-    return redirect('/now?direction=East')
-
-@app.route('/West/')
-def WestModel():
-    return redirect('/now?direction=West')
-
-@app.route('/now/')
-def estimateNow():
-    direction = request.args.get('direction')
-    horizon = request.args.get('horizon', default = 'all')
-    read_config = request.args.get('read_config', default=False)
-
-    outputformat = request.args.get('outputformat')
-    feasible_directions = ['East', 'West'] 
-    feasible_horizons = ['5', '10', '15', '20', '25', '30', 'all']
-
-    if direction is None:
-        return "Error: direction not specified."
+def estimate_now(args):        
+    res = modelzoo.estimate_now(
+        direction=args.direction, 
+        forecast_horizon=args.forecasthorizon, 
+        read_config=False,
+        outputformat=args.outputformat)
     
-    direction = direction.capitalize()
+    return res
 
-    if horizon is None:
-        horizon = 'all'
-        
-    if horizon not in feasible_horizons:
-        return f"Error: horizon must be one of {feasible_horizons}. Instead, it is {horizon}."
 
-    if direction not in feasible_directions:
-        return f"Error: direction must be one of {feasible_directions}. Instead, it is {direction}."
 
-        
-    resdf = modelzoo.estimate_now(direction, horizon, read_config)
+if __name__ == '__main__':
+    args = parser.parse_args()
     
-    if outputformat == 'csv':
-        return resdf.to_csv(index=False, line_terminator=modelzoo.LINETERMINATOR)
-    else:
-        return resdf.to_json()
+    old_stdout = sys.stdout
+    with open(os.devnull, 'w') as f:
+        sys.stdout = f
+        modelzoo = ModelZoo(
+            bb_endpoint=args.bbendpoint,
+            speed_endpoint=args.speedendpoint,
+            token=args.token
+        )
+        estimates = estimate_now(args)
+    
+    sys.stdout = old_stdout
+    print (estimates)
+
+
+    

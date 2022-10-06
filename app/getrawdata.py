@@ -5,45 +5,22 @@
 # - get_bb_data: Gets bb configuration data from baybridge.ritis.org website
 # - get_speed_data: Gets recent speed data from baybridge.ritis.org website
 # - get_bb_current_status_df: Transforms get_bb_data output into a dataframe
+# = get_bb_base_status_df: Produces a dataframe with base Baybridge status (2W, 3E)
 # - agg_speed_5m: Aggregates dataframe with speeds to 5 minute granulation
 # - read_all_tmcs: Reads all tmcs of interests
 # - read_target_tmcs: Loads the target tmcs dataframes
 
-import os
+from os import path
 import pandas as pd
-import numpy as np
 
-import datetime
-from datetime import timedelta
-import time
+from datetime import datetime, timezone
 
-import twill
 import urllib.parse
+from json import loads
+import requests
 
-import json
-import yaml
-
-def connect_bb(credentials : dict):
-    """
-    Connects to bb API if not conneted
-    Args:
-        credentials (dict): dictionary with USERNAME and PASSWORD
-    """
-    twill.commands.go('https://baybridge.ritis.org/')
-    forms = twill.commands.showforms()
-    
-    # If already logged in, skip this part
-    if len(forms) > 0:      
-        form_id = 'popover-login'
-        twill.commands.fv(form_id, "popover-username", credentials['USERNAME'])
-        twill.commands.fv(form_id, "popover-password", credentials['PASSWORD'])
-        twill.commands.submit(0)
-
-        devnull = open(os.devnull, 'w')
-        twill.set_output(devnull)
-
-
-def get_bb_data(credentials = None):
+def get_bb_data(bb_endpoint='https://baybridge.ritis.org/status/',
+                token=None):
     """
     Gets bb configuration data from baybridge.ritis.org website. 
 
@@ -51,47 +28,53 @@ def get_bb_data(credentials = None):
         credentials (dict): dictionary with USERNAME and PASSWORD
                            If None, function assumes that we are already
                            logged in
+        bb_endpoint: baybridge status endpoint
+        token: token for endpoints
+                           
 
     Returns:
         str: string with jsonfile of current bb status
     """
 
-    if credentials is not None:
-        connect_bb(credentials)
+    if bb_endpoint[-1] != '/':
+        bb_endpoint = bb_endpoint + '/'
+
+    bb_endpoint = f'{bb_endpoint}?token={token}'
  
-   # Downloading data
-    link = "https://baybridge.ritis.org/status"
-    twill.commands.go(link)
-    html_bb = twill.commands.show()  
-    ret_bb = json.loads(html_bb)
+    html_bb = requests.get(bb_endpoint).text  
+    ret_bb = loads(html_bb)
 
     return ret_bb
 
 
-def get_speed_data(tmc_list, credentials = None):
+def get_speed_data(tmc_list,
+                   speed_endpoint = 'https://baybridge.ritis.org/speed/recent/',
+                   asof = None,
+                   token = None):
     """
     Gets recent speed data from baybridge.ritis.org website. 
 
     Args:
         tmc_list (list): list of tmcs to get data for
-        credentials (dict): dictionary with USERNAME and PASSWORD
-                           If None, function assumes that we are already
-                           logged in
 
+        speed_endpont: endpoint for speeds
+        token: token for endpoints
     Returns:
         pd.DataFrame: DataFrame with speeds
     """
-
-    if credentials is not None:
-        connect_bb(credentials)
- 
-   # Downloading data
+     
+    if speed_endpoint[-1] != '/':
+        speed_endpoint = speed_endpoint + '/'
 
     tmc_str = urllib.parse.quote(','.join(tmc_list))
-    link = f'https://baybridge.ritis.org/speed/recent/?tmcs={tmc_str}'
-    twill.commands.go(link)
-    html = twill.commands.show()
-    lines =  html.split('\n')
+    if asof is None:
+        link = f'{speed_endpoint}?tmcs={tmc_str}&token={token}'
+    else:
+        asof = str(asof.replace(tzinfo=None)) + 'Z'
+        link = f'{speed_endpoint}?tmcs={tmc_str}&asOf={asof}&token={token}'
+        
+    html = requests.get(link).text        
+    lines =  html.split('\n')[:-1]
     df = pd.DataFrame([x.split(',') for x in lines[1:]], columns = lines[0].split(','))
 
     # Let's do a sanity check here, to be sure that we have right columns in
@@ -134,9 +117,38 @@ def get_bb_current_status_df(json_file):
 
     df_time['West']=df_time[df_time=='W'].count(axis=1)
     df_time['East']=df_time[df_time=='E'].count(axis=1)
-    df_time['measurement_tstamp'] = datetime.datetime.now(datetime.timezone.utc)
+    df_time['measurement_tstamp'] = datetime.now(timezone.utc)
     cols = ['measurement_tstamp','L1status','L2status','L3status','L4status','L5status','West','East']
     return df_time[cols]
+
+def get_bb_base_status_df():
+    """
+    Produces a basic dataframe with Baybridge status (2W, 3E)
+
+    Args:
+        json_file (str): string with jsonfile of current bb status
+
+    Returns:
+        pd.DataFrame: DataFrame with current bb status
+    """
+    columns = [
+        'measurement_tstamp',
+        'L1status', 'L1status', 
+        'L3status', 'L4status', 'L5status', 
+        'West', 'East',        
+    ]
+    data = [
+        datetime.now(timezone.utc),
+        'W', 'W', 
+        'E', 'E', 'E', 
+        2, 3,
+    ]
+    df = pd.DataFrame(data=data).T
+    df.columns = columns
+    return df
+
+
+
 
 def agg_speed_5m(df):
     """
@@ -175,7 +187,7 @@ def read_all_tmcs(data_path : str):
     ret = {}
     for traffic_dir in ['East', 'West']:
 
-        filename = os.path.join(data_path, f'{traffic_dir}bound_all_TMCs.csv')
+        filename = path.join(data_path, f'{traffic_dir}bound_all_TMCs.csv')
 
         with open(filename) as f:
             lines = f.readlines()
@@ -198,36 +210,8 @@ def read_target_tmcs(data_path : str):
     """
     res = dict()
     for traffic_dir in ['East', 'West']:
-        tmc_file = os.path.join(
+        tmc_file = path.join(
             data_path, f'{traffic_dir}bound_target_TMCs.csv')    
         
         res[traffic_dir] = pd.read_csv(tmc_file, delimiter=',' ,dtype=None)
     return res
-
-
-def get_bb_base_status_df(dt = None):
-    """
-    Produces a basic dataframe
-
-    Args:
-        json_file (str): string with jsonfile of current bb status
-
-    Returns:
-        pd.DataFrame: DataFrame with current bb status
-    """
-    columns = [
-        'measurement_tstamp',
-        'L1status', 'L1status', 
-        'L3status', 'L4status', 'L5status', 
-        'West', 'East',        
-    ]
-    data = [
-        datetime.datetime.now(datetime.timezone.utc),
-        'W', 'W', 
-        'E', 'E', 'E', 
-        2, 3,
-    ]
-    df = pd.DataFrame(data=data).T
-    df.columns = columns
-    return df
-

@@ -1,9 +1,8 @@
+GENERAL:
+  VERSION: '1.0'
 CREDENTIALS:
-  USERNAME: YOUR_RITIS_USERNAME
-  PASSWORD: YOUR_RITIS_PASSWORD
+  TOKEN_FILE: './token.txt' # file with BB API token. If you change it, remember to add this file to .gitignore
 SETTINGS:
   MODEL_PATH: './models/'
   DATA_PATH: './data/'
-  LINETERMINATOR: '<br>'
-
-
+  LINETERMINATOR: '\n'

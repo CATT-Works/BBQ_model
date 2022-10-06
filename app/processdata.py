@@ -112,9 +112,9 @@ def prepare_ml_data(tmc_list, tmc_target, speeds, lane_data, queue_data):
     
 
     # 7 Add lane status
-    lane_data['measurement_tstamp']=pd.to_datetime(lane_data['measurement_tstamp'])
+    lane_data['measurement_tstamp']=pd.to_datetime(lane_data['measurement_tstamp'], utc=True).dt.floor("5min")
     dg=dg.merge(lane_data[['measurement_tstamp', 'West', 'East']],
-                on=['measurement_tstamp'],how='left')    
+                on=['measurement_tstamp'], how='left')    
     
 
     # 8 - Add length and distance
